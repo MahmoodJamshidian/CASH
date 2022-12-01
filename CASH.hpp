@@ -181,7 +181,7 @@ namespace client
         AES_KEY enc_key, dec_key;
 
     public:
-        CASH(const char *host, const char *s_key, const char *c_key, std::function<void(client::CASH *)> handler)
+        CASH(const char *host, const char *s_key, const char *c_key, std::function<void(client::CASH *)> handler = NULL)
         {
             AES_set_encrypt_key((unsigned char *)c_key, KEY_SIZE, &enc_key);
             AES_set_decrypt_key((unsigned char *)s_key, KEY_SIZE, &dec_key);
@@ -209,9 +209,16 @@ namespace client
 
             g_con = connection;
 
-            handler(this);
+            if(handler != NULL)
+            {
+                handler(this);
+                connection->close_socket();
+            }
+        }
 
-            connection->close_socket();
+        void close_socket()
+        {
+            g_con->close_socket();
         }
 
         utils::CommandResult run(const char *cmd)
