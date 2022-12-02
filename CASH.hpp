@@ -12,7 +12,6 @@
 #define CLOSE "c"
 #define END "e"
 #define RUN_COMMAND "r"
-#define BLOCK_SIZE 50
 #define CONTENT_SIZE 16
 #define KEY_SIZE 128
 
@@ -97,87 +96,95 @@ namespace server
             static utils::CommandResult c_res;
             TCP::Server(host, PORT, [](TCP::Connection *connection, char *c_addr, uint16_t c_port, TCP::Server *socket)
                         {
-                            connection->accepted = true;
-                            AES_KEY enc_key, dec_key;
-                            unsigned char *res = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char)), *rst = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char));
-                            AES_set_decrypt_key((unsigned char *)_c_key, KEY_SIZE, &dec_key);
-                            AES_set_encrypt_key((unsigned char *)_s_key, KEY_SIZE, &enc_key);
-
-                            char * test = connection->read_socket(BLOCK_SIZE);
-
-                            AES_decrypt((unsigned char *)test, rst, &dec_key);
-
-                            if(strcmp((char *)rst, START_C_MSG) != 0)
+                            try
                             {
-                                connection->write_socket(CLOSE);
-                                connection->close_socket();
-                                return;
-                            }
-                            connection->write_socket(OK);
+                                connection->accepted = true;
+                                AES_KEY enc_key, dec_key;
+                                unsigned char *res = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char)), *rst = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char));
+                                AES_set_decrypt_key((unsigned char *)_c_key, KEY_SIZE, &dec_key);
+                                AES_set_encrypt_key((unsigned char *)_s_key, KEY_SIZE, &enc_key);
 
-                            const char *rand_int = std::to_string(rand()).c_str();
+                                char *test = connection->read_socket(CONTENT_SIZE);
 
-                            AES_encrypt((unsigned char *)rand_int, rst, &enc_key);
+                                AES_decrypt((unsigned char *)test, rst, &dec_key);
 
-                            connection->write_socket((char *)rst);
-
-                            AES_decrypt((unsigned char *)connection->read_socket(BLOCK_SIZE), rst, &dec_key);
-
-                            if(strcmp((char *)rst, rand_int) != 0)
-                            {
-                                connection->write_socket(CLOSE);
-                                connection->close_socket();
-                                return;
-                            }
-                            connection->write_socket(OK);
-
-                            char *c_data;
-                            std::string cmd;
-                            utils::CommandResult exec_res;
-                            std::vector<std::string> exec_res_str;
-                            char exit_status;
-                            std::string t_str;
-                            while (strcmp((c_data = connection->read_socket(BLOCK_SIZE)), "") != 0)
-                            {
-                                if(strcmp(c_data, RUN_COMMAND) == 0)
+                                if (strcmp((char *)rst, START_C_MSG) != 0)
                                 {
-                                    cmd = "";
-                                    while(strcmp((c_data = connection->read_socket(BLOCK_SIZE)), END) != 0)
-                                    {
-                                        if(strcmp(c_data, "") == 0)
-                                        {
-                                            connection->close_socket();
-                                            return;
-                                        }
-                                        connection->write_socket(OK);
-                                        AES_decrypt((unsigned char *)c_data, rst, &dec_key);
-                                        cmd += (char *)rst;
-                                    }
-                                    exec_res = utils::execute(cmd);
-                                    t_str = (char)exec_res.exitstatus;
-                                    AES_encrypt((unsigned char *)t_str.c_str(), rst, &enc_key);
-                                    connection->write_socket((char *)rst);
-                                    connection->read_socket(BLOCK_SIZE);
-                                    
-                                    char *res_char = (char *)malloc(sizeof(char) * exec_res.output.size());
-                                    for(size_t i = 0; i < exec_res.output.size(); i++){
-                                        res_char[i] = exec_res.output[i];
-                                    }
-                                    std::string res_char_s = res_char;
-                                    
-                                    exec_res_str = utils::nsplit(res_char_s, CONTENT_SIZE);
-                                    for(int i = 0; i < exec_res_str.size(); i++)
-                                    {
-                                        AES_encrypt((unsigned char *)exec_res_str[i].c_str(), rst, &enc_key);
-                                        connection->write_socket((char *)rst);
-                                        connection->read_socket(BLOCK_SIZE);
-                                    }
-                                    connection->write_socket(END);
-                                    continue;
+                                    connection->write_socket(CLOSE);
+                                    connection->close_socket();
+                                    return;
                                 }
+                                connection->write_socket(OK);
+
+                                const char *rand_int = std::to_string(rand()).c_str();
+
+                                AES_encrypt((unsigned char *)rand_int, rst, &enc_key);
+
+                                connection->write_socket((char *)rst);
+
+                                AES_decrypt((unsigned char *)connection->read_socket(CONTENT_SIZE), rst, &dec_key);
+
+                                if (strcmp((char *)rst, rand_int) != 0)
+                                {
+                                    connection->write_socket(CLOSE);
+                                    connection->close_socket();
+                                    return;
+                                }
+                                connection->write_socket(OK);
+
+                                char *c_data;
+                                std::string cmd;
+                                utils::CommandResult exec_res;
+                                std::vector<std::string> exec_res_str;
+                                char exit_status;
+                                std::string t_str;
+                                while (strcmp((c_data = connection->read_socket(CONTENT_SIZE)), "") != 0)
+                                {
+                                    if (strcmp(c_data, RUN_COMMAND) == 0)
+                                    {
+                                        cmd = "";
+                                        while (strcmp((c_data = connection->read_socket(CONTENT_SIZE)), END) != 0)
+                                        {
+                                            if (strcmp(c_data, "") == 0)
+                                            {
+                                                connection->close_socket();
+                                                return;
+                                            }
+                                            connection->write_socket(OK);
+                                            AES_decrypt((unsigned char *)c_data, rst, &dec_key);
+                                            cmd += (char *)rst;
+                                        }
+                                        exec_res = utils::execute(cmd);
+                                        t_str = (char)exec_res.exitstatus;
+                                        AES_encrypt((unsigned char *)t_str.c_str(), rst, &enc_key);
+                                        connection->write_socket((char *)rst);
+                                        connection->read_socket(CONTENT_SIZE);
+
+                                        char *res_char = (char *)malloc(sizeof(char) * exec_res.output.size());
+                                        for (size_t i = 0; i < exec_res.output.size(); i++)
+                                        {
+                                            res_char[i] = exec_res.output[i];
+                                        }
+                                        std::string res_char_s = res_char;
+
+                                        exec_res_str = utils::nsplit(res_char_s, CONTENT_SIZE);
+                                        for (int i = 0; i < exec_res_str.size(); i++)
+                                        {
+                                            AES_encrypt((unsigned char *)exec_res_str[i].c_str(), rst, &enc_key);
+                                            connection->write_socket((char *)rst);
+                                            connection->read_socket(CONTENT_SIZE);
+                                        }
+                                        connection->write_socket(END);
+                                        continue;
+                                    }
+                                }
+
+                                connection->close_socket();
                             }
-                            
-                            connection->close_socket(); });
+                            catch (...)
+                            {
+                            }
+                        });
         }
     };
 }
@@ -208,7 +215,7 @@ namespace client
             AES_set_encrypt_key((unsigned char *)_c_key, KEY_SIZE, &enc_key);
             AES_set_decrypt_key((unsigned char *)_s_key, KEY_SIZE, &dec_key);
             TCP::Connection *connection = TCP::Client(host, PORT, NULL).connection;
-            unsigned char *res = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char)), *rst = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char));
+            unsigned char *res = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char)), *rst = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char));
 
             AES_encrypt((unsigned char *)START_C_MSG, rst, &enc_key);
 
@@ -219,7 +226,7 @@ namespace client
                 throw std::runtime_error("connection faild");
             }
 
-            AES_decrypt((unsigned char *)connection->read_socket(1024), rst, &dec_key);
+            AES_decrypt((unsigned char *)connection->read_socket(CONTENT_SIZE), rst, &dec_key);
             AES_encrypt(rst, res, &enc_key);
 
             connection->write_socket((char *)res);
@@ -252,20 +259,20 @@ namespace client
                 return _res;
             }
             std::vector<std::string> res = utils::nsplit(cmd, CONTENT_SIZE);
-            unsigned char *rst = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char));
-            unsigned char *enc_res = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char));
+            unsigned char *rst = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char));
+            unsigned char *enc_res = (unsigned char *)calloc(CONTENT_SIZE, sizeof(unsigned char));
             g_con->write_socket(RUN_COMMAND);
             for (size_t i = 0; i < res.size(); i++)
             {
                 rst = (unsigned char *)res[i].c_str();
                 AES_encrypt(rst, enc_res, &enc_key);
                 g_con->write_socket((char *)enc_res);
-                g_con->read_socket(BLOCK_SIZE);
+                g_con->read_socket(CONTENT_SIZE);
             }
             g_con->write_socket(END);
             char *resp;
             std::string d_resp;
-            if (strcmp((resp = g_con->read_socket(BLOCK_SIZE)), "") != 0)
+            if (strcmp((resp = g_con->read_socket(CONTENT_SIZE)), "") != 0)
             {
                 AES_decrypt((unsigned char *)resp, rst, &dec_key);
                 _res.exitstatus = (int)rst[0];
@@ -275,7 +282,7 @@ namespace client
             {
                 throw std::runtime_error("connection closed");
             }
-            while (strcmp((resp = g_con->read_socket(BLOCK_SIZE)), END) != 0)
+            while (strcmp((resp = g_con->read_socket(CONTENT_SIZE)), END) != 0)
             {
                 if (strcmp(resp, "") == 0)
                 {
