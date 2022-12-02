@@ -14,30 +14,20 @@ void clear()
 
 int main()
 {
-    std::string _host, inp;
+    std::string host, c_key, s_key;
     std::cout << "Enter server address: ";
-    std::cin >> _host;
-    const char *host = _host.c_str();
-    char *c_key = new char[16], *s_key = new char[16];
+    std::cin >> host;
     std::cout << "Enter server password: ";
-    std::cin >> inp;
-    for (int i = 0; i < inp.size(); i++)
-    {
-        s_key[i] = inp[i];
-    }
+    std::cin >> s_key;
     std::cout << "Enter client password: ";
-    std::cin >> inp;
-    for (int i = 0; i < inp.size(); i++)
-    {
-        c_key[i] = inp[i];
-    }
+    std::cin >> c_key;
     clear();
 
     std::cout << "Connecting to CASH://" << host << "/ ... ";
 
     try
     {
-        new client::CASH(host, s_key, c_key, [](client::CASH *connection)
+        new client::CASH(host.c_str(), s_key.c_str(), c_key.c_str(), [](client::CASH *connection)
                          {
         utils::CommandResult res;
         std::string cmd;

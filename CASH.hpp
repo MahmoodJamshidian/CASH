@@ -79,12 +79,21 @@ namespace server
     class CASH
     {
     public:
-        CASH(const char *host, const char *s_key, const char *c_key)
+        CASH(const char *host, const char s_key[CONTENT_SIZE], const char c_key[CONTENT_SIZE])
         {
-            static const char *_c_key = new char[BLOCK_SIZE];
-            static const char *_s_key = new char[BLOCK_SIZE];
-            _c_key = c_key;
-            _s_key = s_key;
+            static char _c_key[CONTENT_SIZE] = {};
+            static char _s_key[CONTENT_SIZE] = {};
+            for (std::uint8_t i = 0; i < CONTENT_SIZE; i++)
+            {
+                if (i < strlen(c_key))
+                {
+                    _c_key[i] = c_key[i];
+                }
+                if (i < strlen(s_key))
+                {
+                    _s_key[i] = s_key[i];
+                }
+            }
             static utils::CommandResult c_res;
             TCP::Server(host, PORT, [](TCP::Connection *connection, char *c_addr, uint16_t c_port, TCP::Server *socket)
                         {
@@ -149,13 +158,13 @@ namespace server
                                     AES_encrypt((unsigned char *)t_str.c_str(), rst, &enc_key);
                                     connection->write_socket((char *)rst);
                                     connection->read_socket(BLOCK_SIZE);
-                                    // test
+                                    
                                     char *res_char = (char *)malloc(sizeof(char) * exec_res.output.size());
                                     for(size_t i = 0; i < exec_res.output.size(); i++){
                                         res_char[i] = exec_res.output[i];
                                     }
                                     std::string res_char_s = res_char;
-                                    // end test
+                                    
                                     exec_res_str = utils::nsplit(res_char_s, CONTENT_SIZE);
                                     for(int i = 0; i < exec_res_str.size(); i++)
                                     {
@@ -181,10 +190,23 @@ namespace client
         AES_KEY enc_key, dec_key;
 
     public:
-        CASH(const char *host, const char *s_key, const char *c_key, std::function<void(client::CASH *)> handler = NULL)
+        CASH(const char *host, const char s_key[CONTENT_SIZE], const char c_key[CONTENT_SIZE], std::function<void(client::CASH *)> handler = NULL)
         {
-            AES_set_encrypt_key((unsigned char *)c_key, KEY_SIZE, &enc_key);
-            AES_set_decrypt_key((unsigned char *)s_key, KEY_SIZE, &dec_key);
+            char _c_key[CONTENT_SIZE] = {};
+            char _s_key[CONTENT_SIZE] = {};
+            for (std::uint8_t i = 0; i < CONTENT_SIZE; i++)
+            {
+                if (i < strlen(c_key))
+                {
+                    _c_key[i] = c_key[i];
+                }
+                if (i < strlen(s_key))
+                {
+                    _s_key[i] = s_key[i];
+                }
+            }
+            AES_set_encrypt_key((unsigned char *)_c_key, KEY_SIZE, &enc_key);
+            AES_set_decrypt_key((unsigned char *)_s_key, KEY_SIZE, &dec_key);
             TCP::Connection *connection = TCP::Client(host, PORT, NULL).connection;
             unsigned char *res = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char)), *rst = (unsigned char *)calloc(BLOCK_SIZE, sizeof(unsigned char));
 
@@ -209,7 +231,7 @@ namespace client
 
             g_con = connection;
 
-            if(handler != NULL)
+            if (handler != NULL)
             {
                 handler(this);
                 connection->close_socket();
@@ -243,16 +265,20 @@ namespace client
             g_con->write_socket(END);
             char *resp;
             std::string d_resp;
-            if (strcmp((resp = g_con->read_socket(BLOCK_SIZE)), "") != 0){
+            if (strcmp((resp = g_con->read_socket(BLOCK_SIZE)), "") != 0)
+            {
                 AES_decrypt((unsigned char *)resp, rst, &dec_key);
                 _res.exitstatus = (int)rst[0];
                 g_con->write_socket(OK);
-            }else{
+            }
+            else
+            {
                 throw std::runtime_error("connection closed");
             }
             while (strcmp((resp = g_con->read_socket(BLOCK_SIZE)), END) != 0)
             {
-                if(strcmp(resp, "") == 0){
+                if (strcmp(resp, "") == 0)
+                {
                     throw std::runtime_error("connection closed");
                 }
                 g_con->write_socket(OK);
