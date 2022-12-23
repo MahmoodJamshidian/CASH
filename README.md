@@ -1,4 +1,4 @@
-CASH (cryptographic access shell portocol)
+CASH (cryptographic access shell protocol)
 ==========================================
 
 Secure communication protocol with AES encryption for running source shell on the server.
